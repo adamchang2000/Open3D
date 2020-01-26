@@ -79,6 +79,12 @@ public:
             const Eigen::Matrix4d &extrinsic,
             const geometry::Image &depth_to_camera_distance_multiplier);
 
+	void DeintegrateWithDepthToCameraDistanceMultiplier(
+            const geometry::RGBDImage &image,
+            const camera::PinholeCameraIntrinsic &intrinsic,
+            const Eigen::Matrix4d &extrinsic,
+            const geometry::Image &depth_to_camera_distance_multiplier);
+
     inline int IndexOf(int x, int y, int z) const {
         return x * resolution_ * resolution_ + y * resolution_ + z;
     }
