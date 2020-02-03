@@ -5,5 +5,7 @@ file(GLOB_RECURSE ALL_SOURCE_FILES "*.cpp")
 add_library(Integration OBJECT ${ALL_SOURCE_FILES})
 ShowAndAbortOnWarning(Integration)
 
+message(${ALL_SOURCE_FILES})
+
 # Enforce 3rd party dependencies
 add_dependencies(Integration build_all_3rd_party_libs)

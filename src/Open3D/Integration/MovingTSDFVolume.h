@@ -30,12 +30,13 @@
 #include <unordered_map>
 
 #include "Open3D/Integration/TSDFVolume.h"
+#include "Open3D/Integration/ScalableTSDFVolume.h"
 #include "Open3D/Utility/Helper.h"
 
 namespace open3d {
 	namespace integration {
 
-		class UniformTSDFVolume;
+		class ScalableTSDFVolume;
 
 		/// Class that implements a more memory efficient data structure for volumetric
 		/// integration
@@ -55,33 +56,22 @@ namespace open3d {
 		/// removing outlier structures like floating noise pixels and bumps along
 		/// structure edges.
 
-		class MovingTSDFVolume {
-		public:
-			struct VolumeUnit {
-			public:
-				VolumeUnit() : volume_(NULL) {}
-
-			public:
-				std::shared_ptr<UniformTSDFVolume> volume_;
-				Eigen::Vector3i index_;
-			};
-
+		class MovingTSDFVolume{
 		public:
 			MovingTSDFVolume(double voxel_length,
                        double sdf_trunc,
                        TSDFVolumeColorType color_type,
-                       int volume_unit_resolution = 16,
-                       int depth_sampling_stride = 4);
-			~MovingTSDFVolume() override;
+                       double block_length);
+			~MovingTSDFVolume();
 
 		public:
-			void Reset() override;
+			void Reset();
 			void Integrate(const geometry::RGBDImage &image,
 				const camera::PinholeCameraIntrinsic &intrinsic,
-				const Eigen::Matrix4d &extrinsic) override;
-			std::shared_ptr<geometry::PointCloud> ExtractCurrentPointCloud() override;
-			std::shared_ptr<geometry::TriangleMesh> ExtractCurrentTriangleMesh() override;
-			std::shared_ptr<geometry::TriangleMesh> ExtractTriangleMeshes();
+				const Eigen::Matrix4d &extrinsic);
+			std::shared_ptr<geometry::PointCloud> ExtractCurrentPointCloud();
+			std::shared_ptr<geometry::TriangleMesh> ExtractCurrentTriangleMesh();
+			std::vector<std::shared_ptr<geometry::TriangleMesh>> ExtractTriangleMeshes();
 			std::shared_ptr<geometry::PointCloud> ExtractCurrentVoxelPointCloud();
 			void set_latest_key_frame(Eigen::Matrix4d transform, int key_frame_num);
 
@@ -111,8 +101,8 @@ namespace open3d {
 			std::vector<int> completed_meshes_keyframe_nums;
 
 			//stores current scalable tsdf volume
-			ScalableTSDFVolume active_volume;
-			Eigen:Matrix4d active_volume_transform;
+			ScalableTSDFVolume * active_volume;
+			Eigen::Matrix4d active_volume_transform;
 			int active_volume_keyframe_num;
 			Eigen::Vector3i current_block;
 

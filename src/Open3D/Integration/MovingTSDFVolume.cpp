@@ -33,7 +33,7 @@
 
 #include <unordered_set>
 
-#include "Open3D/Geometry/PointCloud.h"
+//#include "Open3D/Geometry/PointCloud.h"
 #include "Open3D/Integration/MarchingCubesConst.h"
 #include "Open3D/Integration/UniformTSDFVolume.h"
 #include "Open3D/Utility/Console.h"
@@ -50,7 +50,7 @@ namespace open3d {
 			sdf_trunc_(sdf_trunc),
 			color_type_(color_type) {
 				current_block = Eigen::Vector3i(0, 0, 0);
-				active_volume = ScalableTSDFVolume(voxel_length_,
+				active_volume = new ScalableTSDFVolume(voxel_length_,
                        sdf_trunc_,
                        color_type_);
 			}
@@ -87,10 +87,7 @@ namespace open3d {
 
 			update_active_volume(extrinsic);
 
-			active_volume->Integrate(
-			const geometry::RGBDImage &image,
-			const camera::PinholeCameraIntrinsic &intrinsic,
-			const Eigen::Matrix4d &extrinsic);
+			active_volume->Integrate(image, intrinsic, extrinsic);
 
 		}
 
@@ -102,40 +99,50 @@ namespace open3d {
 				return;
 			}
 
-			completed_meshes.push_back(active_volume.ExtractTriangleMesh());
+			completed_meshes.push_back(active_volume->ExtractTriangleMesh());
 			completed_meshes_transforms.push_back(active_volume_transform);
 			completed_meshes_keyframe_nums.push_back(active_volume_keyframe_num);
 
-			active_volume = ScalableTSDFVolume(voxel_length_, sdf_trunc_, color_type_);
+			active_volume = new ScalableTSDFVolume(voxel_length_, sdf_trunc_, color_type_);
 			active_volume_transform = latest_key_frame;
 			active_volume_keyframe_num = latest_key_frame_num;
+			current_block = block_loc;
 
 		}
 
-		void MovingTSDFVolume::set_latest_key_frame(Eigen::Matrix 4d transform, int key_frame_num) {
+
+
+		void MovingTSDFVolume::set_latest_key_frame(Eigen::Matrix4d transform, int key_frame_num) {
 			latest_key_frame = transform;
 			latest_key_frame_num = key_frame_num;
 		}
 
+
+
 		std::shared_ptr<geometry::TriangleMesh>
 			MovingTSDFVolume::ExtractCurrentTriangleMesh() {
-				if (!active_volume)
+				if (active_volume == NULL)
 					utility::LogError("No current mesh to extract mesh from.");
-				return active_volume.ExtractTriangleMesh();
+				return active_volume->ExtractTriangleMesh();
 		}
 
 		std::shared_ptr<geometry::PointCloud>
-			MovingTSDFVolume::ExtractVoxelPointCloud() {
-				if (!active_volume)
+			MovingTSDFVolume::ExtractCurrentVoxelPointCloud() {
+				if (active_volume == NULL)
 					utility::LogError("No current mesh to extract voxel point cloud from.");
-				return active_volume.ExtractVoxelPointCloud();
+				return active_volume->ExtractVoxelPointCloud();
 		}
 
 		//todo implement extracting from all the triangle meshes
-		std::shared_ptr<geometry::TriangleMesh>
+		std::vector<std::shared_ptr<geometry::TriangleMesh>>
 			MovingTSDFVolume::ExtractTriangleMeshes() {
-				if (completed_meshes.size() == 0 && !active_volume)
+				if (completed_meshes.size() == 0 && active_volume == NULL)
 					utility::LogError("No meshes to extract mesh from.");
+
+				std::vector<std::shared_ptr<geometry::TriangleMesh>> meshes;
+				meshes.insert(meshes.end(), completed_meshes.begin(), completed_meshes.end());
+				meshes.push_back(this->ExtractCurrentTriangleMesh());
+				return meshes;
 
 		}
 	}  // namespace integration
