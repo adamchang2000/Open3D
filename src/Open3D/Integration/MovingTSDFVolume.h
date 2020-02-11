@@ -112,7 +112,7 @@ namespace open3d {
 			}
 
 			void MovingTSDFVolume::UpdateActiveVolume(Eigen::Matrix4d extrinsic);
-			//void MovingTSDFVolume::CombineMeshes(std::shared_ptr<geometry::TriangleMesh>& output_mesh, std::shared_ptr<geometry::TriangleMesh> mesh_to_combine);
+			void MovingTSDFVolume::CombineMeshes(std::shared_ptr<geometry::TriangleMesh>& output_mesh, std::shared_ptr<geometry::TriangleMesh> mesh_to_combine);
 
 
 			//stores triangles meshes of completed reconstructed blocks
@@ -134,7 +134,7 @@ namespace open3d {
 			int counter = 0;
 
 			std::chrono::system_clock::time_point latest_loop_closure = std::chrono::system_clock::now();
-			float time_threshold = 0.5;
+			float time_threshold = 1.0;
 
 		protected:
 			std::mutex keyFrameLock;

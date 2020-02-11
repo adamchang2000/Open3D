@@ -85,8 +85,8 @@ namespace open3d {
 			Eigen::Matrix4d transform_kf_coords = Eigen::Matrix4d::Identity();
 			transform_kf_coords = extrinsic * active_volume_transform; //F_WS.inverse()*K_WS --- F_WS*K_WS.inverse() 
 
-			std::cout << extrinsic << std::endl;
-			std::cout << transform_kf_coords << std::endl;	
+			//std::cout << extrinsic << std::endl;
+			//std::cout << transform_kf_coords << std::endl;	
 
 			
 			active_volume->Integrate(image, intrinsic, transform_kf_coords);
@@ -116,12 +116,7 @@ namespace open3d {
 
 			auto mesh = active_volume->ExtractTriangleMesh();
 			completed_mesh->mesh = mesh;
-			if (active_keyframe_optimized) {
-				completed_mesh->transform = active_volume_optimized_transform;
-			}
-			else {
-				completed_mesh->transform = active_volume_transform;
-			}
+			completed_mesh->transform = active_volume_transform;
 			completed_mesh->keyframe_num = active_volume_keyframe_num;
 			completed_mesh->block_loc = current_block;
 			completed_meshes.push_back(completed_mesh);
@@ -132,37 +127,36 @@ namespace open3d {
 			active_volume_transform = latest_keyframe;
 			active_volume_keyframe_num = latest_keyframe_num;
 
-			active_keyframe_optimized = false;
 			current_block = block_loc;
 		}
 
-		//void MovingTSDFVolume::CombineMeshes(std::shared_ptr<geometry::TriangleMesh>& output_mesh, std::shared_ptr<geometry::TriangleMesh> mesh_to_combine) {
+		void MovingTSDFVolume::CombineMeshes(std::shared_ptr<geometry::TriangleMesh>& output_mesh, std::shared_ptr<geometry::TriangleMesh> mesh_to_combine) {
 
-		//	//printf("combine meshes called %d\n", output_mesh->vertices_.size());
-		//	//printf("mesh to combine vetices %d\n", mesh_to_combine->vertices_.size());
+			//printf("combine meshes called %d\n", output_mesh->vertices_.size());
+			//printf("mesh to combine vertices %d\n", mesh_to_combine->vertices_.size());
 
-		//	/*std::vector<Eigen::Vector3d> out_vertices = output_mesh->vertices_;
-		//	std::vector<Eigen::Vector3d> out_colors = output_mesh->vertex_colors_;
-		//	std::vector<Eigen::Vector3i> out_triangles = output_mesh->triangles_;*/
+			/*std::vector<Eigen::Vector3d> out_vertices = output_mesh->vertices_;
+			std::vector<Eigen::Vector3d> out_colors = output_mesh->vertex_colors_;
+			std::vector<Eigen::Vector3i> out_triangles = output_mesh->triangles_;*/
 
-		//	std::vector<Eigen::Vector3d> vertices = mesh_to_combine->vertices_;
-		//	std::vector<Eigen::Vector3d> colors = mesh_to_combine->vertex_colors_;
-		//	std::vector<Eigen::Vector3i> triangles = mesh_to_combine->triangles_;
+			std::vector<Eigen::Vector3d> vertices = mesh_to_combine->vertices_;
+			std::vector<Eigen::Vector3d> colors = mesh_to_combine->vertex_colors_;
+			std::vector<Eigen::Vector3i> triangles = mesh_to_combine->triangles_;
 
-		//	size_t tri_count = output_mesh->vertices_.size();
+			size_t tri_count = output_mesh->vertices_.size();
 
-		//	output_mesh->vertices_.insert(output_mesh->vertices_.end(), vertices.begin(), vertices.end());
-		//	output_mesh->vertex_colors_.insert(output_mesh->vertex_colors_.end(), colors.begin(), colors.end());
-		//	for (auto triangle : triangles) {
-		//		Eigen::Vector3i triangle_;
-		//		triangle_(0) = triangle(0) + tri_count;
-		//		triangle_(1) = triangle(1) + tri_count;
-		//		triangle_(2) = triangle(2) + tri_count;
-		//		output_mesh->triangles_.push_back(triangle_);
-		//	}
+			output_mesh->vertices_.insert(output_mesh->vertices_.end(), vertices.begin(), vertices.end());
+			output_mesh->vertex_colors_.insert(output_mesh->vertex_colors_.end(), colors.begin(), colors.end());
+			for (auto triangle : triangles) {
+				Eigen::Vector3i triangle_;
+				triangle_(0) = triangle(0) + tri_count;
+				triangle_(1) = triangle(1) + tri_count;
+				triangle_(2) = triangle(2) + tri_count;
+				output_mesh->triangles_.push_back(triangle_);
+			}
 
-		//	//printf("combine meshes exited %d\n", output_mesh->vertices_.size());
-		//}
+			//printf("combine meshes exited %d\n", output_mesh->vertices_.size());
+		}
 
 
 		void MovingTSDFVolume::SetLatestKeyFrame(Eigen::Matrix4d transform, int keyframe_num) {
@@ -195,59 +189,87 @@ namespace open3d {
 
 			if (keyframes.count(active_volume_keyframe_num)) {
 				active_volume_transform = keyframes[active_volume_keyframe_num];
-				active_keyframe_optimized = true;
+
 			}
 		}
 
 		//returns a vector of mesh in its own local coords and associated viewing transform
 		std::vector<std::pair<std::shared_ptr<geometry::TriangleMesh>, Eigen::Matrix4d>> MovingTSDFVolume::GetTriangleMeshes() {
 
-			printf("get triangle meshes called\n");
+			//printf("get triangle meshes called\n");
 
 			std::vector<std::pair<std::shared_ptr<geometry::TriangleMesh>, Eigen::Matrix4d>> ret;
 			for (auto completed_mesh : completed_meshes) {
 
-				printf("mesh with sizes: %d %d \n", completed_mesh->mesh->vertices_.size(), completed_mesh->mesh->triangles_.size());
+				//printf("mesh with sizes: %d %d \n", completed_mesh->mesh->vertices_.size(), completed_mesh->mesh->triangles_.size());
 
 				ret.push_back(std::pair<std::shared_ptr<geometry::TriangleMesh>, Eigen::Matrix4d>(completed_mesh->mesh, completed_mesh->transform));
 			}
-			if (active_keyframe_optimized) {
-				ret.push_back(std::pair<std::shared_ptr<geometry::TriangleMesh>, Eigen::Matrix4d>(ExtractCurrentTriangleMesh(), active_volume_optimized_transform));
-			}
-			else {
-				ret.push_back(std::pair<std::shared_ptr<geometry::TriangleMesh>, Eigen::Matrix4d>(ExtractCurrentTriangleMesh(), active_volume_transform));
-			}
+
+			ret.push_back(std::pair<std::shared_ptr<geometry::TriangleMesh>, Eigen::Matrix4d>(ExtractCurrentTriangleMesh(), active_volume_transform));
 
 			return ret;
 		}
 
 
 
-		////todo implement extracting from all the triangle meshes
-		//std::shared_ptr<geometry::TriangleMesh>
-		//	MovingTSDFVolume::ExtractTotalTriangleMesh() {
-		//		//std::lock_guard<std::mutex> guard(meshLock);
-		//		if (completed_mesh == NULL && active_volume == NULL)
-		//			utility::LogError("No meshes to extract mesh from.");
+		//todo implement extracting from all the triangle meshes
+		std::shared_ptr<geometry::TriangleMesh>
+			MovingTSDFVolume::ExtractTotalTriangleMesh() {
 
-		//		//return completed_mesh;
+				printf("extracting triangle meshes\n");
 
-		//		auto mesh = std::make_shared<geometry::TriangleMesh>();
+				auto mesh_output = std::make_shared<geometry::TriangleMesh>();
 
-		//		mesh->vertices_.insert(mesh->vertices_.end(), completed_mesh->vertices_.begin(), completed_mesh->vertices_.end());
-		//		mesh->vertex_colors_.insert(mesh->vertex_colors_.end(), completed_mesh->vertex_colors_.begin(), completed_mesh->vertex_colors_.end());
-		//		mesh->triangles_.insert(mesh->triangles_.end(), completed_mesh->triangles_.begin(), completed_mesh->triangles_.end());
+				for (auto mesh_unit : completed_meshes) {
+					
+					//printf("adding a mesh\n");
 
-		//		CombineMeshes(mesh, ExtractCurrentTriangleMesh());
+					auto completed_mesh = mesh_unit->mesh;
+					auto transformed_mesh = std::make_shared<geometry::TriangleMesh>();
 
-		//		return mesh;
-		//}
+					auto vertices = completed_mesh->vertices_;
+					std::vector<Eigen::Vector3d> transformed_vertices;
+
+					for (Eigen::Vector3d vertex : vertices) {
+
+						Eigen::Vector4d v(vertex(0), vertex(1), vertex(2), 1.0);
+						v = mesh_unit->transform * v;
+						Eigen::Vector3d transformed_v(v(0), v(1), v(2));
+
+						transformed_vertices.push_back(transformed_v);
+					}
+
+					transformed_mesh->vertices_ = transformed_vertices;
+					transformed_mesh->vertex_colors_ = completed_mesh->vertex_colors_;
+					transformed_mesh->triangles_ = completed_mesh->triangles_;
+
+					CombineMeshes(mesh_output, transformed_mesh);
+
+				}
+
+				
+				auto mesh = active_volume->ExtractTriangleMesh();
+				for (int i = 0; i < mesh->vertices_.size(); ++i) {
+					Eigen::Vector4d v(mesh->vertices_[i](0), mesh->vertices_[i](1), mesh->vertices_[i](2), 1.0);
+					v = active_volume_transform * v;
+					Eigen::Vector3d transformed_v(v(0), v(1), v(2));
+					mesh->vertices_[i] = transformed_v;
+				}
+
+				CombineMeshes(mesh_output, mesh);
+
+				return mesh_output;
+		}
 
 		std::shared_ptr<geometry::TriangleMesh>
 			MovingTSDFVolume::ExtractCurrentTriangleMesh() {
 				if (active_volume == NULL)
 					utility::LogError("No current mesh to extract mesh from.");
+
 				return active_volume->ExtractTriangleMesh();
+					
+					
 		}
 
 		std::shared_ptr<geometry::PointCloud>
