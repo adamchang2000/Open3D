@@ -24,10 +24,16 @@
 // IN THE SOFTWARE.
 // ----------------------------------------------------------------------------
 
+//Created by Adam Chang
+//Implementation of TSDF blocking with key frame association to allow loop closure on 3D Reconstructed segments in real time
+
 #pragma once
 
 #include <memory>
+#include <map>
 #include <unordered_map>
+#include <mutex>
+#include <chrono>
 
 #include "Open3D/Integration/TSDFVolume.h"
 #include "Open3D/Integration/ScalableTSDFVolume.h"
@@ -59,10 +65,22 @@ namespace open3d {
 		class MovingTSDFVolume{
 		public:
 			MovingTSDFVolume(double voxel_length,
-                       double sdf_trunc,
-                       TSDFVolumeColorType color_type,
-                       double block_length);
+				double sdf_trunc,
+				TSDFVolumeColorType color_type,
+				double block_length);
 			~MovingTSDFVolume();
+
+		public:
+			struct MeshUnit {
+			public:
+				MeshUnit() {}
+
+			public:
+				std::shared_ptr<geometry::TriangleMesh> mesh;
+				Eigen::Matrix4d transform;
+				int keyframe_num;
+				Eigen::Vector3i block_loc;
+			};
 
 		public:
 			void Reset();
@@ -71,9 +89,14 @@ namespace open3d {
 				const Eigen::Matrix4d &extrinsic);
 			std::shared_ptr<geometry::PointCloud> ExtractCurrentPointCloud();
 			std::shared_ptr<geometry::TriangleMesh> ExtractCurrentTriangleMesh();
-			std::vector<std::shared_ptr<geometry::TriangleMesh>> ExtractTriangleMeshes();
+
+			std::shared_ptr<geometry::TriangleMesh> ExtractTotalTriangleMesh();
 			std::shared_ptr<geometry::PointCloud> ExtractCurrentVoxelPointCloud();
-			void set_latest_key_frame(Eigen::Matrix4d transform, int key_frame_num);
+			std::vector<std::pair<std::shared_ptr<geometry::TriangleMesh>, 
+				Eigen::Matrix4d>> GetTriangleMeshes();
+			void SetLatestKeyFrame(Eigen::Matrix4d transform, int key_frame_num);
+			void UpdateKeyFrames(std::map<int, Eigen::Matrix4d> keyframes);
+			std::vector<int> get_kf_ids();
 
 		public:
 			int volume_unit_resolution_;
@@ -92,22 +115,32 @@ namespace open3d {
 					(int)std::floor(point(2) / block_length_));
 			}
 
-			void MovingTSDFVolume::update_active_volume(Eigen::Matrix4d extrinsic);
+
+			void MovingTSDFVolume::UpdateActiveVolume(Eigen::Matrix4d extrinsic);
+			void MovingTSDFVolume::CombineMeshes(std::shared_ptr<geometry::TriangleMesh>& output_mesh, std::shared_ptr<geometry::TriangleMesh> mesh_to_combine);
 
 
 			//stores triangles meshes of completed reconstructed blocks
-			std::vector<std::shared_ptr<geometry::TriangleMesh>> completed_meshes;
-			std::vector<Eigen::Matrix4d> completed_meshes_transforms;
-			std::vector<int> completed_meshes_keyframe_nums;
+			std::vector<std::shared_ptr<MeshUnit>> completed_meshes;
 
 			//stores current scalable tsdf volume
 			ScalableTSDFVolume * active_volume;
 			Eigen::Matrix4d active_volume_transform;
-			int active_volume_keyframe_num;
+			int active_volume_keyframe_num = -1;
 			Eigen::Vector3i current_block;
 
-			Eigen::Matrix4d latest_key_frame;
-			int latest_key_frame_num;
+			Eigen::Matrix4d latest_keyframe;
+			int latest_keyframe_num;
+
+			//temp for debug purposes
+			int counter = 0;
+
+			std::chrono::system_clock::time_point latest_loop_closure = std::chrono::system_clock::now();
+			float time_threshold = 1.0;
+
+		protected:
+			std::mutex keyFrameLock;
+			std::mutex meshLock;
 		};
 
 	}  // namespace integration
