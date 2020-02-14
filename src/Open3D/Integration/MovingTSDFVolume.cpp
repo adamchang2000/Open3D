@@ -27,7 +27,7 @@
 
 
 //Created by Adam Chang
-//Implementation of Joe's moving 3x3 mesh blocks for real-time reconstruction
+//Implementation of TSDF blocking with key frame association to allow loop closure on 3D Reconstructed segments in real time
 
 #include "Open3D/Integration/MovingTSDFVolume.h"
 #include <iostream>
@@ -84,18 +84,12 @@ namespace open3d {
 
 			Eigen::Matrix4d transform_kf_coords = Eigen::Matrix4d::Identity();
 			transform_kf_coords = extrinsic * active_volume_transform; //F_WS.inverse()*K_WS --- F_WS*K_WS.inverse() 
-
-			//std::cout << extrinsic << std::endl;
-			//std::cout << transform_kf_coords << std::endl;	
-
 			
 			active_volume->Integrate(image, intrinsic, transform_kf_coords);
 
 		}
 
 		void MovingTSDFVolume::UpdateActiveVolume(Eigen::Matrix4d extrinsic) {
-
-			//std::lock_guard<std::mutex> guard2(meshLock);
 
 			//locate which block we are in, origin = center of block (l/2, l/2, l/2)
 			auto block_loc = LocateBlock(Eigen::Vector3d(extrinsic(0, 3) - block_length_ / 2, extrinsic(1, 3) - block_length_ / 2, extrinsic(2, 3) - block_length_ / 2));
@@ -122,7 +116,6 @@ namespace open3d {
 			completed_meshes.push_back(completed_mesh);
 
 
-
 			active_volume = new ScalableTSDFVolume(voxel_length_, sdf_trunc_, color_type_);
 			active_volume_transform = latest_keyframe;
 			active_volume_keyframe_num = latest_keyframe_num;
@@ -130,14 +123,8 @@ namespace open3d {
 			current_block = block_loc;
 		}
 
+		//combines 2 meshes, places in mesh 1
 		void MovingTSDFVolume::CombineMeshes(std::shared_ptr<geometry::TriangleMesh>& output_mesh, std::shared_ptr<geometry::TriangleMesh> mesh_to_combine) {
-
-			//printf("combine meshes called %d\n", output_mesh->vertices_.size());
-			//printf("mesh to combine vertices %d\n", mesh_to_combine->vertices_.size());
-
-			/*std::vector<Eigen::Vector3d> out_vertices = output_mesh->vertices_;
-			std::vector<Eigen::Vector3d> out_colors = output_mesh->vertex_colors_;
-			std::vector<Eigen::Vector3i> out_triangles = output_mesh->triangles_;*/
 
 			std::vector<Eigen::Vector3d> vertices = mesh_to_combine->vertices_;
 			std::vector<Eigen::Vector3d> colors = mesh_to_combine->vertex_colors_;
@@ -154,11 +141,9 @@ namespace open3d {
 				triangle_(2) = triangle(2) + tri_count;
 				output_mesh->triangles_.push_back(triangle_);
 			}
-
-			//printf("combine meshes exited %d\n", output_mesh->vertices_.size());
 		}
 
-
+		// running pointer of current keyframe
 		void MovingTSDFVolume::SetLatestKeyFrame(Eigen::Matrix4d transform, int keyframe_num) {
 			latest_keyframe = transform;
 			latest_keyframe_num = keyframe_num;
@@ -170,17 +155,12 @@ namespace open3d {
 			}
 		}
 
+		//loop closure detected, update key frames attached to past reconstruction blocks
 		void MovingTSDFVolume::UpdateKeyFrames(std::map<int, Eigen::Matrix4d> keyframes) {
 			std::lock_guard<std::mutex> guard(keyFrameLock);
 			printf("loop closure detected -> key frames updating\n");
 
 			latest_loop_closure = std::chrono::system_clock::now();
-
-			/*std::shared_ptr<open3d::geometry::TriangleMesh> write_mesh = ExtractTotalTriangleMesh();
-			open3d::io::WriteTriangleMeshToPLY("mesh_" + std::to_string(counter) + ".ply", *write_mesh, false, false, true, true, false, false);
-			counter++;*/
-
-			printf("past meshes count: %d\n", completed_meshes.size());
 
 			for (auto completed_mesh : completed_meshes) {
 				Eigen::Matrix4d updated_transform = keyframes[completed_mesh->keyframe_num];
@@ -193,16 +173,10 @@ namespace open3d {
 			}
 		}
 
-		//returns a vector of mesh in its own local coords and associated viewing transform
+		//returns a vector of mesh in its own local coords and associated viewing transform (including active volume)
 		std::vector<std::pair<std::shared_ptr<geometry::TriangleMesh>, Eigen::Matrix4d>> MovingTSDFVolume::GetTriangleMeshes() {
-
-			//printf("get triangle meshes called\n");
-
 			std::vector<std::pair<std::shared_ptr<geometry::TriangleMesh>, Eigen::Matrix4d>> ret;
 			for (auto completed_mesh : completed_meshes) {
-
-				//printf("mesh with sizes: %d %d \n", completed_mesh->mesh->vertices_.size(), completed_mesh->mesh->triangles_.size());
-
 				ret.push_back(std::pair<std::shared_ptr<geometry::TriangleMesh>, Eigen::Matrix4d>(completed_mesh->mesh, completed_mesh->transform));
 			}
 
@@ -213,7 +187,7 @@ namespace open3d {
 
 
 
-		//todo implement extracting from all the triangle meshes
+		//returns all meshes placed into one TriangleMesh (vertices, vertex colors, triangles)
 		std::shared_ptr<geometry::TriangleMesh>
 			MovingTSDFVolume::ExtractTotalTriangleMesh() {
 

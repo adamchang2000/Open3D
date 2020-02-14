@@ -24,6 +24,9 @@
 // IN THE SOFTWARE.
 // ----------------------------------------------------------------------------
 
+//Created by Adam Chang
+//Implementation of TSDF blocking with key frame association to allow loop closure on 3D Reconstructed segments in real time
+
 #pragma once
 
 #include <memory>
@@ -127,8 +130,6 @@ namespace open3d {
 
 			Eigen::Matrix4d latest_keyframe;
 			int latest_keyframe_num;
-			bool active_keyframe_optimized = false;
-			Eigen::Matrix4d active_volume_optimized_transform;
 
 			//temp for debug purposes
 			int counter = 0;
